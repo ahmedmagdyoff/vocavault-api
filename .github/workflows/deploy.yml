@@ -17,6 +17,6 @@ jobs:
             cd /home/ahmedmagdy-api-vocavault/htdocs/api.vocavault.ahmedmagdy.cloud
             git fetch origin
             git reset --hard origin/main
-            composer install --no-dev
+            composer install --no-dev --optimize-autoloader
             php artisan migrate --force
             php artisan optimize
