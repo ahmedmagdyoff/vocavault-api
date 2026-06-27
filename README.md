@@ -1,4 +1,3 @@
-````md
 <div align="center">
 
 # ⚙️ VocaVault API
@@ -149,4 +148,3 @@ Every push to the `main` branch runs:
 # 📄 License
 
 This project is licensed under the **MIT License**.
-````
