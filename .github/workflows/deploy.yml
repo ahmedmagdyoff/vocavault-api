@@ -23,7 +23,7 @@ jobs:
       url: https://api.vocavault.ahmedmagdy.cloud
 
     steps:
-      - name: VPS Deploy
+      - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
