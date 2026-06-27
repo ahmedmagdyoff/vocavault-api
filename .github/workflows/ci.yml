@@ -1,6 +1,6 @@
 name: Check
 
-run-name: Check - ${{ github.event.head_commit.message }}
+run-name: ${{ github.event.head_commit.message }}
 
 permissions:
   contents: read
