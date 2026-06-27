@@ -1,11 +1,21 @@
 name: VPS Deploy
+
+permissions:
+  contents: read
+
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - Build Check
+    types:
+      - completed
+
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     runs-on: ubuntu-latest
+
     steps:
       - name: VPS Deploy
         uses: appleboy/ssh-action@v1.2.0
@@ -15,10 +25,16 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /home/ahmedmagdy-api-vocavault/htdocs/api.vocavault.ahmedmagdy.cloud
+
             git fetch origin
             git reset --hard origin/main
+
             composer install --no-dev --optimize-autoloader
+
             php artisan migrate --force
+
             php artisan optimize
+
             sleep 5
+
             curl -f https://api.vocavault.ahmedmagdy.cloud
