@@ -16,6 +16,10 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    environment:
+      name: Production
+      url: https://api.vocavault.ahmedmagdy.cloud
+
     steps:
       - name: VPS Deploy
         uses: appleboy/ssh-action@v1.2.0
