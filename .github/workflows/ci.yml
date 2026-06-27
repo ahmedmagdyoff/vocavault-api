@@ -39,6 +39,4 @@ jobs:
           php artisan key:generate
 
       - name: Laravel Build Check
-        run: |
-          php artisan config:cache
-          php artisan route:cache
+        run: php artisan optimize
