@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WordRequest;
 use App\Http\Resources\WordResource;
 use App\Models\Word;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -23,19 +24,17 @@ class WordController extends Controller
     /**
      * Store a newly created word in storage.
      */
-    public function store(WordRequest $request): WordResource
+    public function store(WordRequest $request): WordResource|JsonResponse
     {
         $word = $request->user()->words()->create($request->safe()->except(['video_ids', 'forms']));
 
-        if ($request->has('video_ids')) {
-            // Ensure videos belong to the user
-            $validVideoIds = $request->user()->videos()->whereIn('id', $request->video_ids)->pluck('id');
-            $word->videos()->sync($validVideoIds);
+        $validationError = $this->syncVideos($word, $request);
+        if ($validationError) {
+            $word->delete();
+            return $validationError;
         }
 
-        if ($request->has('forms')) {
-            $word->forms()->createMany($request->forms);
-        }
+        $this->syncForms($word, $request);
 
         return new WordResource($word->load(['category', 'videos', 'forms']));
     }
@@ -43,7 +42,7 @@ class WordController extends Controller
     /**
      * Update the specified word in storage.
      */
-    public function update(WordRequest $request, Word $word): WordResource
+    public function update(WordRequest $request, Word $word): WordResource|JsonResponse
     {
         if ($word->user_id !== $request->user()->id) {
             abort(403);
@@ -51,15 +50,12 @@ class WordController extends Controller
 
         $word->update($request->safe()->except(['video_ids', 'forms']));
 
-        if ($request->has('video_ids')) {
-            $validVideoIds = $request->user()->videos()->whereIn('id', $request->video_ids)->pluck('id');
-            $word->videos()->sync($validVideoIds);
+        $validationError = $this->syncVideos($word, $request);
+        if ($validationError) {
+            return $validationError;
         }
 
-        if ($request->has('forms')) {
-            $word->forms()->delete();
-            $word->forms()->createMany($request->forms);
-        }
+        $this->syncForms($word, $request);
 
         return new WordResource($word->load(['category', 'videos', 'forms']));
     }
@@ -75,5 +71,40 @@ class WordController extends Controller
 
         $word->delete();
         return response()->noContent();
+    }
+
+    /**
+     * Sync video associations, rejecting if any video_ids don't belong to the user.
+     */
+    private function syncVideos(Word $word, WordRequest $request): ?JsonResponse
+    {
+        if (!$request->has('video_ids')) {
+            return null;
+        }
+
+        $submittedIds = $request->video_ids;
+        $validVideoIds = $request->user()->videos()->whereIn('id', $submittedIds)->pluck('id');
+
+        if ($validVideoIds->count() !== count($submittedIds)) {
+            return response()->json([
+                'message' => 'Some video IDs are invalid or do not belong to you.',
+            ], 422);
+        }
+
+        $word->videos()->sync($validVideoIds);
+        return null;
+    }
+
+    /**
+     * Replace all grammatical forms on a word with the submitted set.
+     */
+    private function syncForms(Word $word, WordRequest $request): void
+    {
+        if (!$request->has('forms')) {
+            return;
+        }
+
+        $word->forms()->delete();
+        $word->forms()->createMany($request->forms);
     }
 }

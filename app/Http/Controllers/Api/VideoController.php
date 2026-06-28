@@ -34,7 +34,6 @@ class VideoController extends Controller
      */
     public function update(VideoRequest $request, Video $video): VideoResource
     {
-        // Ensure user owns the video
         if ($video->user_id !== $request->user()->id) {
             abort(403);
         }
@@ -48,7 +47,6 @@ class VideoController extends Controller
      */
     public function destroy(Request $request, Video $video)
     {
-        // Ensure user owns the video
         if ($video->user_id !== $request->user()->id) {
             abort(403);
         }
