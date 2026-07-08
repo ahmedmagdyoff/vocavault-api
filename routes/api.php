@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
 
     Route::apiResource('videos', VideoController::class);
+    Route::post('words/bulk', [WordController::class, 'bulkStore']);
     Route::apiResource('words', WordController::class);
     Route::get('categories', [CategoryController::class, 'index']);
 });

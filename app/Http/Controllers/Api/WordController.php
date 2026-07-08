@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WordRequest;
 use App\Http\Resources\WordResource;
 use App\Models\Word;
+use App\Services\WordBulkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,9 +27,9 @@ class WordController extends Controller
      */
     public function store(WordRequest $request): WordResource|JsonResponse
     {
-        $word = $request->user()->words()->create($request->safe()->except(['video_ids', 'forms']));
+        $word = $request->user()->words()->create($request->safe()->except(['video_id', 'forms']));
 
-        $validationError = $this->syncVideos($word, $request);
+        $validationError = $this->syncVideo($word, $request);
         if ($validationError) {
             $word->delete();
             return $validationError;
@@ -40,6 +41,35 @@ class WordController extends Controller
     }
 
     /**
+     * Store words in bulk.
+     */
+    public function bulkStore(Request $request, WordBulkService $service): JsonResponse
+    {
+        $request->validate([
+            'rows' => ['required', 'string'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'video_id' => ['required', 'integer', 'exists:videos,id'],
+        ]);
+
+        $submittedId = $request->video_id;
+        $validVideo = $request->user()->videos()->where('id', $submittedId)->exists();
+        if (!$validVideo) {
+            return response()->json([
+                'message' => 'The video ID is invalid or does not belong to you.',
+            ], 422);
+        }
+
+        $report = $service->process(
+            $request->input('rows'),
+            $request->input('category_id'),
+            $submittedId,
+            $request->user()
+        );
+
+        return response()->json(['report' => $report]);
+    }
+
+    /**
      * Update the specified word in storage.
      */
     public function update(WordRequest $request, Word $word): WordResource|JsonResponse
@@ -48,9 +78,9 @@ class WordController extends Controller
             abort(403);
         }
 
-        $word->update($request->safe()->except(['video_ids', 'forms']));
+        $word->update($request->safe()->except(['video_id', 'forms']));
 
-        $validationError = $this->syncVideos($word, $request);
+        $validationError = $this->syncVideo($word, $request);
         if ($validationError) {
             return $validationError;
         }
@@ -74,24 +104,24 @@ class WordController extends Controller
     }
 
     /**
-     * Sync video associations, rejecting if any video_ids don't belong to the user.
+     * Sync video association, rejecting if video_id doesn't belong to the user.
      */
-    private function syncVideos(Word $word, WordRequest $request): ?JsonResponse
+    private function syncVideo(Word $word, WordRequest $request): ?JsonResponse
     {
-        if (!$request->has('video_ids')) {
+        if (!$request->has('video_id')) {
             return null;
         }
 
-        $submittedIds = $request->video_ids;
-        $validVideoIds = $request->user()->videos()->whereIn('id', $submittedIds)->pluck('id');
+        $submittedId = $request->video_id;
+        $validVideo = $request->user()->videos()->where('id', $submittedId)->exists();
 
-        if ($validVideoIds->count() !== count($submittedIds)) {
+        if (!$validVideo) {
             return response()->json([
-                'message' => 'Some video IDs are invalid or do not belong to you.',
+                'message' => 'The video ID is invalid or does not belong to you.',
             ], 422);
         }
 
-        $word->videos()->sync($validVideoIds);
+        $word->videos()->sync([$submittedId]);
         return null;
     }
 
